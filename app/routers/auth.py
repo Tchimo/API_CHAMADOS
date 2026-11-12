@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from app.dependencies import DbSession
 from app.models import User
-from app.schemas import LoginRequest, Token, UserCreate, UserOut
+from app.schemas import Token, UserCreate, UserOut
 from app.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
@@ -20,8 +21,8 @@ def register(data: UserCreate, db: DbSession):
 
 
 @router.post("/login", response_model=Token)
-def login(data: LoginRequest, db: DbSession):
-    user = db.scalar(select(User).where(User.email == data.email.lower()))
-    if not user or not verify_password(data.password, user.password_hash):
+def login(db: DbSession, form_data: OAuth2PasswordRequestForm = Depends()):
+    user = db.scalar(select(User).where(User.email == form_data.username.lower()))
+    if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha inválidos")
     return {"access_token": create_access_token(str(user.id)), "token_type": "bearer"}
